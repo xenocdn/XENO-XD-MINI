@@ -33,7 +33,7 @@ const msgRetryCounterCache = new NodeCache();
 
 require('events').EventEmitter.defaultMaxListeners = 500;
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://amalxerv3_db_user:<db_password>@cluster0.h7ueptd.mongodb.net/?appName=Cluster0';
+const MONGODB_URI = process.env.MONGODB_URI || config.MONGODB_URI || 'mongodb+srv://amalxerv3_db_user:<db_password>@cluster0.h7ueptd.mongodb.net/?appName=Cluster0';
 
 mongoose.connect(MONGODB_URI)
     .then(() => console.log('𝐌ᴏɴɢᴏ𝐃𝐁 𝐂ᴏɴɴᴇᴄᴛᴇᴅ ✅ '))
@@ -100,6 +100,7 @@ function cleanupSession(sessionId) {
 
 async function restoreSession(sessionId, sessionPath) {
     try {
+        if (mongoose.connection.readyState !== 1) return false;
         const session = await Session.findOne({ sessionId });
         if (!session) return false;
         await fs.ensureDir(sessionPath);
@@ -137,8 +138,10 @@ async function saveSession(sessionId, sessionPath) {
             return;
         }
 
-        await Session.findOneAndUpdate({ sessionId }, { data }, { upsert: true });
-        console.log('💾 𝐒aved:', sessionId);
+        if (mongoose.connection.readyState === 1) {
+            await Session.findOneAndUpdate({ sessionId }, { data }, { upsert: true });
+            console.log('💾 𝐒aved:', sessionId);
+        }
     } catch (err) {
         console.error('𝐒ave𝐒ession error:', err);
     }
@@ -486,6 +489,10 @@ async function Pair(number, res = null) {
 
 async function restoreAllSessions() {
     try {
+        if (mongoose.connection.readyState !== 1) {
+            console.log('⚠️ MongoDB not connected, skipping restore from DB.');
+            return;
+        }
         const sessions = await Session.find();
         console.log(`Restoring ${sessions.length} session(s)...`);
 
