@@ -649,9 +649,8 @@ m.react("⏰")
 var links = await extractUrlsFromString(lik)
 const igregex = /^(https?:\/\/)?(www\.)?(ig\.com|instagram\.?com)\/.+$/;
 var link = links.find(url => igregex.test(url)); 
-        var data = await insta(link)
-        var title = data.title || undefined;
-        const dlUrl = data.url || data.thumb;
+        var resp = await m.axios(`https://api-aswin-sparky.koyeb.app/api/downloader/igdl?url=${encodeURIComponent(link)}`);
+        const dlUrl = resp.url || resp.thumb || resp.download || resp;
         m.react("")
         return await m.client.sendFileUrl(m.chat, dlUrl, config().CAPTION, m)
         } catch (e) {
