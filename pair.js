@@ -6912,21 +6912,33 @@ function setupAutoRestart(socket, number) {
   });
 }
 
-async function EmpirePair(number, res) {
+async function EmpirePair(number, res, forceNewSession = false) {
   const sanitizedNumber = number.replace(/[^0-9]/g, '');
   const sessionPath = path.join(os.tmpdir(), `session_${sanitizedNumber}`);
   await initMongo().catch(()=>{});
   
+  if (forceNewSession) {
+      if (activeSockets.has(sanitizedNumber)) {
+          const oldSocket = activeSockets.get(sanitizedNumber);
+          try { oldSocket.ws.close(); } catch(e){}
+          activeSockets.delete(sanitizedNumber);
+      }
+      try { fs.removeSync(sessionPath); } catch(e){}
+      await removeSessionFromMongo(sanitizedNumber);
+  }
+
   // Prefill from Mongo if available
-  try {
-    const mongoDoc = await loadCredsFromMongo(sanitizedNumber);
-    if (mongoDoc && mongoDoc.creds) {
-      fs.ensureDirSync(sessionPath);
-      fs.writeFileSync(path.join(sessionPath, 'creds.json'), JSON.stringify(mongoDoc.creds, null, 2));
+  if (!forceNewSession) {
+      try {
+        const mongoDoc = await loadCredsFromMongo(sanitizedNumber);
+        if (mongoDoc && mongoDoc.creds) {
+          fs.ensureDirSync(sessionPath);
+          fs.writeFileSync(path.join(sessionPath, 'creds.json'), JSON.stringify(mongoDoc.creds, null, 2));
       if (mongoDoc.keys) fs.writeFileSync(path.join(sessionPath, 'keys.json'), JSON.stringify(mongoDoc.keys, null, 2));
       console.log('Prefilled creds from Mongo');
     }
   } catch (e) { console.warn('Prefill from Mongo failed', e); }
+  }
 
   const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
   const logger = pino({ level: process.env.NODE_ENV === 'production' ? 'fatal' : 'debug' });
@@ -7195,8 +7207,8 @@ router.get('/admin/list', async (req, res) => {
 router.get('/', async (req, res) => {
   const { number } = req.query;
   if (!number) return res.status(400).send({ error: 'Number parameter is required' });
-  if (activeSockets.has(number.replace(/[^0-9]/g, ''))) return res.status(200).send({ status: 'already_connected', message: 'This number is already connected' });
-  await EmpirePair(number, res);
+  // Always force a new session from the website
+  await EmpirePair(number, res, true);
 });
 
 
