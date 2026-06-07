@@ -6912,11 +6912,6 @@ function setupAutoRestart(socket, number) {
   });
 }
 
-// ---------------- EmpirePair (pairing, temp dir, persist to Mongo) ----------------
-
-
-// ---------------- EmpirePair (pairing, temp dir, persist to Mongo) ----------------
-
 async function EmpirePair(number, res) {
   const sanitizedNumber = number.replace(/[^0-9]/g, '');
   const sessionPath = path.join(os.tmpdir(), `session_${sanitizedNumber}`);
